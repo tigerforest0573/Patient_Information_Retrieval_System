@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>病人信息管理</title>
+    <link href="style.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+</head>
+<body>
+    <div class="container manage-container">
+        <div class="header">
+            <h2>病人信息管理</h2>
+        </div>
+        
+        <div class="card">
+            <div class="form-group">
+                <label for="actionType">选择操作:</label>
+                <select class="form-control" id="actionType">
+                    <option value="add">新增记录</option>
+                    <option value="update">修改记录</option>
+                    <option value="delete">删除记录</option>
+                </select>
+            </div>
+            
+            <form id="patientForm">
+                <input type="hidden" id="form_action" name="action">
+                
+                <div class="form-group" id="group_patient_id">
+                    <label for="patient_id">病人ID:</label>
+                    <input type="text" class="form-control" id="patient_id" name="patient_id">
+                </div>
+                
+                <div class="form-group" id="group_patient_name">
+                    <label for="patient_name">病人姓名:</label>
+                    <input type="text" class="form-control" id="patient_name" name="patient_name">
+                </div>
+                
+                <div class="form-group" id="group_patient_data">
+                    <label for="patient_data">病人数据/病症:</label>
+                    <textarea class="form-control" id="patient_data" name="patient_data" rows="3"></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">执行操作</button>
+            </form>
+            
+            <div id="responseMessage" class="alert"></div>
+        </div>
+        
+        <a href="index.php" class="btn btn-default">返回查询页面</a>
+    </div>
+
+   <script>
+        $(document).ready(function() {
+            function updateFormConfiguration() {
+                var selectedAction = $('#actionType').val();
+                $('#form_action').val(selectedAction);
+                
+                $('#group_patient_id').show();
+                $('#patient_id').prop('required', true);
+                $('#group_patient_name').show();
+                $('#patient_name').prop('required', false);
+                $('#group_patient_data').show();
+                $('#patient_data').prop('required', false);
+                
+                var submitButtonText = '执行操作';
+                
+                if (selectedAction === 'add') {
+                    $('#patient_name').prop('required', true);
+                    $('#patient_data').prop('required', true);
+                    submitButtonText = '新增记录';
+                } else if (selectedAction === 'update') {
+                    submitButtonText = '修改记录';
+                } else if (selectedAction === 'delete') {
+                    $('#group_patient_name').hide();
+                    $('#patient_name').val('');
+                    $('#group_patient_data').hide();
+                    $('#patient_data').val('');
+                    submitButtonText = '删除记录';
+                }
+                
+                $('button[type="submit"]').text(submitButtonText);
+            }
+            
+            updateFormConfiguration();
+            
+            $('#actionType').on('change', function() {
+                updateFormConfiguration();
+                $('#responseMessage').hide().text('').removeClass('alert-success alert-danger alert-warning alert-info');
+            });
+            
+            $('#patientForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                var selectedAction = $('#actionType').val();
+                var formData = {
+                    action: selectedAction,
+                    patient_id: $('#patient_id').val()
+                };
+                
+                if (selectedAction === 'add' || selectedAction === 'update') {
+                    formData.patient_name = $('#patient_name').val();
+                    formData.patient_data = $('#patient_data').val();
+                }
+                
+                if (!formData.patient_id) {
+                    displayMessage('错误：病人ID 不能为空。', 'danger');
+                    return;
+                }
+                
+                if (selectedAction === 'add') {
+                    if (!formData.patient_name || !formData.patient_data) {
+                        displayMessage('错误：新增操作时，病人姓名和病人数据均不能为空。', 'danger');
+                        return;
+                    }
+                }
+                
+                if (selectedAction === 'update') {
+                    if (formData.patient_name === '' && formData.patient_data === '') {
+                        displayMessage('错误：修改操作时，病人姓名和病人数据至少需要填写一项。', 'warning');
+                    }
+                }
+                
+                $.ajax({
+                    type: 'POST',
+                    url: 'modify.php',
+                    data: formData,
+                    beforeSend: function() {
+                        $('button[type="submit"]').prop('disabled', true).text('处理中...');
+                        $('#responseMessage').hide().text('').removeClass('alert-success alert-danger alert-warning alert-info');
+                    },
+                    success: function(response) {
+                        var messageType = 'info';
+                        
+                        if (response.startsWith('成功：')) {
+                            messageType = 'success';
+                            if (selectedAction === 'add') {
+                                $('#patient_id, #patient_name, #patient_data').val('');
+                            } else if (selectedAction === 'delete') {
+                                $('#patient_id').val('');
+                            }
+                        } else if (response.startsWith('错误：')) {
+                            messageType = 'danger';
+                        } else if (response.startsWith('注意：')) {
+                            messageType = 'warning';
+                        }
+                        
+                        displayMessage(response, messageType);
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        displayMessage('AJAX 请求失败: ' + textStatus + ', ' + errorThrown, 'danger');
+                    },
+                    complete: function() {
+                        var currentAction = $('#actionType').val();
+                        var buttonText = '执行操作';
+                        if (currentAction === 'add') buttonText = '新增记录';
+                        else if (currentAction === 'update') buttonText = '修改记录';
+                        else if (currentAction === 'delete') buttonText = '删除记录';
+                        
+                        $('button[type="submit"]').prop('disabled', false).text(buttonText);
+                    }
+                });
+            });
+            
+            function displayMessage(message, type) {
+                $('#responseMessage')
+                    .removeClass('alert-success alert-danger alert-warning alert-info')
+                    .addClass('alert-' + type)
+                    .html(message.replace(/\n/g, '<br>'))
+                    .fadeIn();
+            }
+        });
+    </script>
+</body>
+</html>
