@@ -4,7 +4,7 @@
 $start_time = microtime(true);
 
 include('mysql_con.php');              // 数据库连接
-include('function/encrypt.php');       // 其余函数
+
 include('function/check.php');
 include('function/XSSProtection.php');
 
