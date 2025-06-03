@@ -3,7 +3,7 @@
 // 记录脚本开始时间
 $start_time = microtime(true);
 include('mysql_con.php');              // 数据库连接
-include('function/encrypt.php');       // 其余函数
+
 include('function/check.php');
 include('function/XSSProtection.php');
 error_reporting(E_ALL & ~E_NOTICE);
